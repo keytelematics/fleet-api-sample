@@ -1,0 +1,7 @@
+.env
+node_modules
+*.sqlite
+output.log
+data/
+public/
+dist/
