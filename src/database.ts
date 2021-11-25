@@ -7,6 +7,11 @@ const sql = knex({
     }
 });
 
+type DbData = {
+    id: string;
+    json_data: string;
+    type: string;
+}
 export const insert = (type: string, data: any) => {
     return sql(type).insert(data);
 }
