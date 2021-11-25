@@ -3,6 +3,9 @@ A reference application for making use of the Key Telematics Fleet API.
 
 ## Setup
 
+Create the database first by running the database create script in the `scripts` directory.
+
+
 # Environment variables
 
 This project makes use of `dotenv` and requires a `.env` file in the root of the project with the following variables to load from
