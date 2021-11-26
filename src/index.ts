@@ -17,13 +17,11 @@ async function retryOnThrottle<T>(callback: () => Promise<T>, tries: number): Pr
         try {
             return callback();
         } catch (e) {
-            console.log('error occured!')
             // Throttling 429 response will trigger the delay here and retry again
             if (e.status == 429) {
                 await new Promise(resolve => setTimeout(resolve, i * 1000));
                 lastError = e;
             }
-            console.log(e);
             throw e;
         } 
     }
