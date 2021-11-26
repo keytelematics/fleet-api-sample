@@ -1,4 +1,4 @@
-import { AssetListItem, AuthClient, ClientOptions, DeviceListItem, EntitiesClient } from '@key-telematics/fleet-api-client';
+import { AssetListItem, AuthClient, ClientOptions, DeviceListItem, EntitiesClient, ReportDefinitionResponse } from '@key-telematics/fleet-api-client';
 import knex from 'knex';
 import { initializeExpress } from './routes';
 
@@ -11,18 +11,41 @@ type ApiClient = {
 let loginCredentials;
 
 // retry exponential backoff promise
-const delay = retryCount =>
-    new Promise(resolve => setTimeout(resolve, 10 ** retryCount));
+async function retryOnThrottle<T>(callback: () => Promise<T>, tries: number): Promise<T> {
+    let lastError = null;
+    for (var i = 1; i <= tries; i++) {
+        try {
+            return callback();
+        } catch (e) {
+            console.log('error occured!')
+            // Throttling 429 response will trigger the delay here and retry again
+            if (e.status == 429) {
+                await new Promise(resolve => setTimeout(resolve, i * 1000));
+                lastError = e;
+            }
+            console.log(e);
+            throw e;
+        } 
+    }
+    throw lastError;
+}
+
 
 // Knex instance to sqlite db
 const sql = knex({
     client: 'sqlite3',
     connection: {
         filename: "./sampledb.sqlite"
-    }
+    },
+    useNullAsDefault: true
 });
 
+const authClient = new AuthClient({
+    url: process.env.KEY_HOST
+})
+
 const initialize = async () => {
+    
     try {
         const apiKey = process.env.KEY_API_KEY;
         const basePath = process.env.KEY_HOST;
@@ -54,85 +77,26 @@ const initialize = async () => {
 }
 
 // Login for access token
-const login = async (username: string, password: string, retryCount: number = 0, lastError: any = null) => {
-
-    // backoff in [1ms, 10ms, 100ms, 1s, 10s]
-    if (retryCount > 5)
-        return new Error(lastError);
-
-    try {
-        return await new AuthClient({
-            url: process.env.KEY_HOST
-        }).signIn({ username, password })
-    } catch (e) {
-        // Throttling 429 response will trigger the delay here and retry again
-        if (e.status == 429) {
-            console.log('Api request throttled, request backoff', { error: e });
-            await delay(retryCount);
-            return login(username, password, retryCount + 1, e);
-        }
-        return;
-    }
+const login = async (username: string, password: string) => {
+    return await retryOnThrottle(() => authClient.signIn({ username, password }), 5);
 }
-
-const getDevices = async (api: ApiClient, ownerId: string, retryCount: number = 0, lastError: any = null) => {
-    console.log('Fetching devices', { ownerId, retryCount });
-
-    // backoff in [1ms, 10ms, 100ms, 1s, 10s]
-    if (retryCount > 5)
-        return new Error(lastError);
-
-    try {
-        // get first 100 devices
-        return api.entities.listDevices(ownerId, undefined, 100);
-    } catch (e) {
-        // Throttling 429 response will trigger the delay here and retry again
-        if (e.status == 429) {
-            console.log('Api request throttled, request backoff for fetching devices', { ownerId, retryCount, error: e });
-            await delay(retryCount);
-            return getDevices(api, ownerId, retryCount + 1, e);
-        }
-        return;
-    }
-}
-
-const getAssets = async (api: ApiClient, ownerId: string, retryCount: number = 0, lastError: any = null) => {
-    console.log('Fetching assets', { ownerId, retryCount });
-
-    if (retryCount > 5)
-        return new Error(lastError);
-
-    try {
-        // get first 100 assets
-        return api.entities.listAssets(ownerId, undefined, 100);
-    } catch (e) {
-        // Throttling 429 response will trigger the delay here and retry again
-        if (e.status == 429) {
-            console.log('Api request throttled, request backoff for fetching assets', { ownerId, retryCount, error: e });
-            await delay(retryCount);
-            return getDevices(api, ownerId, retryCount + 1, e);
-        }
-        return;
-    }
-}
-
 
 const fetchData = async (api: ApiClient, ownerId: string) => {
-
     // Devices
     // map out columns to match schema for demo purpose only, normally all columns would be persisted so no map needed
-    const devices = (await getDevices(api, ownerId)).items.map((device: DeviceListItem) => {
+    const devices = (await retryOnThrottle(() => api.entities.listDevices(ownerId, undefined, 100), 5));
+    await sql('devices').insert(devices.items.map((device: DeviceListItem) => {
         return {
             id: device.id,
             name: device.name,
             state: device.state
         }
-    });
-    await sql('devices').insert(devices);
+    }));
 
     // Assets
     // map out columns to match schema for demo purpose only, normally all columns would be persisted so no map needed
-    const assets = (await getAssets(api, ownerId)).items.map((asset: AssetListItem) => {
+    const assets = (await retryOnThrottle(() => api.entities.listAssets(ownerId, undefined, 100), 5));
+    await sql('assets').insert(assets.items.map((asset: AssetListItem) => {
         return {
             id: asset.id,
             name: asset.name,
@@ -141,13 +105,10 @@ const fetchData = async (api: ApiClient, ownerId: string) => {
             ownerId: asset.owner.id,
             costCentreId: asset.costCentre.id
         }
-    });
-
-    await sql('assets').insert(assets);
+    }));
 }
 
-
-
+// Startup node app
 initialize();
 
 process.on('SIGINT', function () { // catch when a user presses Ctrl-C
