@@ -1,5 +1,5 @@
-import { AssetListItem, AuthClient, ClientOptions, DeviceListItem, EntitiesClient, ReportDefinitionResponse } from '@key-telematics/fleet-api-client';
-import knex from 'knex';
+import { AssetListItem, AuthClient, DeviceListItem, EntitiesClient } from '@key-telematics/fleet-api-client';
+import { sql } from './database';
 import { initializeExpress } from './routes';
 
 require('dotenv').config(); // Load .env file in project root as environment variables
@@ -21,31 +21,21 @@ async function retryOnThrottle<T>(callback: () => Promise<T>, tries: number): Pr
             if (e.status == 429) {
                 await new Promise(resolve => setTimeout(resolve, i * 1000));
                 lastError = e;
+                continue;
             }
             throw e;
-        } 
+        }
     }
     throw lastError;
 }
-
-
-// Knex instance to sqlite db
-const sql = knex({
-    client: 'sqlite3',
-    connection: {
-        filename: "./sampledb.sqlite"
-    },
-    useNullAsDefault: true
-});
 
 const authClient = new AuthClient({
     url: process.env.KEY_HOST
 })
 
 const initialize = async () => {
-    
+
     try {
-        const apiKey = process.env.KEY_API_KEY;
         const basePath = process.env.KEY_HOST;
         const ownerId = process.env.OWNER_ID;
         const username = process.env.USERNAME;
@@ -62,12 +52,9 @@ const initialize = async () => {
             }),
         };
 
-        await initializeExpress({
-            apiKey,
-            basePath,
-        });
+        await initializeExpress();
 
-        fetchData(api, ownerId);
+        fetchApiData(api, ownerId);
 
     } catch (err) {
         console.error(err);
@@ -79,10 +66,10 @@ const login = async (username: string, password: string) => {
     return await retryOnThrottle(() => authClient.signIn({ username, password }), 5);
 }
 
-const fetchData = async (api: ApiClient, ownerId: string) => {
+const fetchApiData = async (api: ApiClient, ownerId: string) => {
     // Devices
     // map out columns to match schema for demo purpose only, normally all columns would be persisted so no map needed
-    const devices = (await retryOnThrottle(() => api.entities.listDevices(ownerId, undefined, 100), 5));
+    const devices = await retryOnThrottle(() => api.entities.listDevices(ownerId, undefined, 100), 5);
     await sql('devices').insert(devices.items.map((device: DeviceListItem) => {
         return {
             id: device.id,
@@ -93,13 +80,13 @@ const fetchData = async (api: ApiClient, ownerId: string) => {
 
     // Assets
     // map out columns to match schema for demo purpose only, normally all columns would be persisted so no map needed
-    const assets = (await retryOnThrottle(() => api.entities.listAssets(ownerId, undefined, 100), 5));
+    const assets = await retryOnThrottle(() => api.entities.listAssets(ownerId, undefined, 100), 5);
     await sql('assets').insert(assets.items.map((asset: AssetListItem) => {
         return {
             id: asset.id,
             name: asset.name,
             state: asset.state,
-            deviceId: asset.devices[0].id,
+            deviceId: asset.devices ? asset.devices[0].id : null,
             ownerId: asset.owner.id,
             costCentreId: asset.costCentre.id
         }

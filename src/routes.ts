@@ -1,8 +1,8 @@
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
-//import { get } from './database';
+import { sql } from './database';
 
-export const initializeExpress = async ({ apiKey, basePath }: { apiKey: string, basePath: string }) => {
+export const initializeExpress = async () => {
 
     const app = express();
     const port = 5000;
@@ -11,14 +11,17 @@ export const initializeExpress = async ({ apiKey, basePath }: { apiKey: string, 
     app.use(cors());
 
     app.get('/data', async (request: Request, response: Response, _next: NextFunction) => {
-         try {
-            // response.status(200).json({
-            //     ...get('assets')
-            // });
-         } catch (err) {
-             response.status(500).json({ error: err.message });
-         }
-         // write query here to fetch and join data to return from sqlite that was retrieved by api
+        try {
+            const assets = await sql('assets').select()
+            const devices = await sql('devices').select();
+
+            response.status(200).json({
+                assets,
+                devices
+            }); 
+        } catch (err) {
+            response.status(500).json({ error: err.message });
+        }
     });
 
     app.listen(port, () => {
