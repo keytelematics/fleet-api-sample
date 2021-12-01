@@ -1,6 +1,7 @@
 import { AssetListItem, AuthClient, DeviceListItem, EntitiesClient } from '@key-telematics/fleet-api-client';
 import { sql } from './database';
 import { initializeExpress } from './routes';
+import axios from 'axios';
 
 require('dotenv').config(); // Load .env file in project root as environment variables
 
@@ -91,6 +92,92 @@ const fetchApiData = async (api: ApiClient, ownerId: string) => {
             costCentreId: asset.costCentre.id
         }
     }));
+
+    // Get data from telemetry stream over HTTP and start mapping out to telemetry, events, trips
+    try {
+        const data = (await axios.get('https://export.eu1.kt1.io/v2/stream', {
+            headers: {
+                'x-access-token': process.env.EXPORT_TASK_API_KEY, 
+                'accept-encoding': 'gzip',
+                'connection': 'keep-alive'
+            }
+        })).data;
+
+        for (let count = 0; count < data.items.length; count++) {
+            const item = data.items[count];
+
+            switch (item.type) {
+                case 'event':
+                    // not all fields mapped here to save, just for demo purpose
+                    const eventDb = {
+                        id: item.id,
+                        ownerId: item.ownerId,
+                        ownerName: item.ownerName,
+                        originId: item.originId,
+                        date: item.date,
+                        eventDate: item.eventDate,
+                        creationDate: item.creationDate,
+                        revoked: item.revoked,
+                        eventClass: item.eventClass,
+                        eventType: item.eventType,
+                        assetId: item.assetId,
+                        assetName: item.assetName,
+                    };
+                    await sql('events').insert(eventDb);
+                    console.log('event record consumed!')
+                    break;
+                case 'telemetry':
+                    // not all fields mapped here to save, just for demo purpose
+                    const telemetryDb = {
+                        originId: item.originId,
+                        ownerId: item.ownerId,
+                        date: item.date,
+                        received: item.received,
+                        priority: item.telemetry['priority'],
+                        eventId: item.telemetry['eventId'],
+                        ignition: item.telemetry['ignition'],
+                        moving: item.telemetry['moving'],
+                        motion_end: item.telemetry['motion_end'],
+                        gsm_signal: item.telemetry['gsm_signal'],
+                        battery_perc: item.telemetry['battery_perc'],
+                        driving: item.telemetry['driving'],
+                        trip: item.telemetry['trip'],
+                        movement: item.telemetry['movement'],
+                        assetId: item.assetId,
+                        assetName: item.assetName,
+                    };
+
+                    // save to sqlite db
+                    await sql('telemetry').insert(telemetryDb);
+
+                    // log out message of saved record
+                    console.log('telemetry record consumed!')
+                    break;
+                case 'trip':
+                    // not all fields mapped here to save, just for demo purpose
+                    const tripDb = {
+                        id: item.id,
+                        ownerId: item.ownerId,
+                        assetId: item.assetId,
+                        tripType: item.tripType, 
+                        dateStart: item.tripType,
+                        dateEnd: item.assetId,
+                        records: item.tripType,
+                        assetName: item.assetName,
+                        driveTime: item.stats.driveTime,
+                        idleTime: item.stats.idleTime,
+                        distance: item.stats.distance,
+                    };
+
+                    await sql('trips').insert(tripDb);
+
+                    console.log('trip record consumed!')
+                    break;
+            }
+        }
+    } catch (error) {
+        console.log('Telemetry stream failed', error);
+    }
 }
 
 // Startup node app

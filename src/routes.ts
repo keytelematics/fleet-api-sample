@@ -14,10 +14,16 @@ export const initializeExpress = async () => {
         try {
             const assets = await sql('assets').select()
             const devices = await sql('devices').select();
-
+            const events = await sql('events').select()
+            const telemetry = await sql('telemetry').select();
+            const trips = await sql('trips').select();
+            
             response.status(200).json({
                 assets,
-                devices
+                devices,
+                events,
+                telemetry,
+                trips
             }); 
         } catch (err) {
             response.status(500).json({ error: err.message });

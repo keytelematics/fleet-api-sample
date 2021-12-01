@@ -16,13 +16,13 @@ This will create the database in the root of the project called `sampledb.sqlite
 
 This project makes use of `dotenv` and requires a `.env` file in the root of the project with the following variables to load from
 
-| VARIABLE    | DESCRIPTION                                                                 | VALUE                    |
-|-------------|-----------------------------------------------------------------------------|--------------------------|
-| KEY_API_KEY | The api key to auth api calls, given in the request header with `x-api-key` | text                      |
-| KEY_HOST    | The KeyTelematics api host to make request to.                              | https://api.stage.kt1.io |
-| OWNER_ID    | The id of the company that owns the devices and assets                      | Guid                   |
-| USERNAME    | The username of a user to login with for authentication                     | text                     |
-| PASSWORD    | The password of the username to login with for authentication               | text                     |
+| VARIABLE    | DESCRIPTION                                                                 |
+|-------------|-----------------------------------------------------------------------------|
+| EXPORT_TASK_API_KEY | The api key created in the export tasks section in the UI |
+| KEY_HOST    | The KeyTelematics api host to make request to.                              |
+| OWNER_ID    | The id of the company that owns the devices and assets                      |
+| USERNAME    | The username of a user to login with for authentication                     |
+| PASSWORD    | The password of the username to login with for authentication               |
 
 ## Step 3
 
