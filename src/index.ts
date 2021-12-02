@@ -54,10 +54,8 @@ const initialize = async () => {
         };
 
         await initializeExpress();
-
         await fetchApiData(api, ownerId);
         await fetchTelemetry();
-
     } catch (err) {
         console.error(err);
     }
@@ -69,6 +67,7 @@ const login = async (username: string, password: string) => {
 }
 
 const fetchApiData = async (api: ApiClient, ownerId: string) => {
+    console.log('Fetching data from api');
 
     /******** Assets *******/
     // map out columns to match schema for demo purpose only, normally all columns would be persisted
@@ -103,102 +102,113 @@ const fetchApiData = async (api: ApiClient, ownerId: string) => {
 }
 
 const fetchTelemetry = async () => {
+    console.log('Fetching telemetry from stream');
+
     // Get data from telemetry stream over HTTP and start mapping out to telemetry, events, trips
     try {
-        const data = (await axios.get(process.env.EXPORT_TASK_HOST, {
-            headers: {
-                'x-access-token': process.env.EXPORT_TASK_API_KEY,
-                'accept-encoding': 'gzip',
-                'connection': 'keep-alive'
+        let id = '';
+        while (id != undefined) {
+
+            const data = (await axios.get(process.env.EXPORT_TASK_HOST, {
+                headers: {
+                    'x-access-token': process.env.EXPORT_TASK_API_KEY,
+                    'accept-encoding': 'gzip',
+                    'connection': 'keep-alive'
+                }
+            })).data;
+
+            for (let count = 0; count < data.items.length; count++) {
+                const item = data.items[count];
+
+                switch (item.type) {
+                    case 'event':
+                        // not all fields mapped here to save, just for demo purpose
+                        const eventDb = {
+                            id: item.id,
+                            ownerId: item.ownerId,
+                            ownerName: item.ownerName,
+                            originId: item.originId,
+                            date: item.date,
+                            eventDate: item.eventDate,
+                            revoked: item.revoked,
+                            eventClass: item.eventClass,
+                            eventType: item.eventType,
+                            assetId: item.assetId,
+                        };
+                        await sql('events')
+                            .insert(eventDb)
+                            .onConflict('id')
+                            .merge();
+
+                        break;
+                    case 'telemetry':
+                        // not all fields mapped here to save, just for demo purpose
+                        const telemetryDb = {
+                            originId: item.originId,
+                            ownerId: item.ownerId,
+                            date: item.date,
+                            received: item.received,
+                            priority: item.telemetry['priority'],
+                            eventId: item.telemetry['eventId'],
+                            ignition: item.telemetry['ignition'],
+                            moving: item.telemetry['moving'],
+                            motion_end: item.telemetry['motion_end'],
+                            gsm_signal: item.telemetry['gsm_signal'],
+                            battery_perc: item.telemetry['battery_perc'],
+                            driving: item.telemetry['driving'],
+                            trip: item.telemetry['trip'],
+                            movement: item.telemetry['movement'],
+                            assetId: item.assetId,
+                        };
+
+                        // save to sqlite db
+                        await sql('telemetry')
+                            .insert(telemetryDb)
+                            .onConflict(['originId', 'date'])
+                            .merge();;
+
+                        break;
+                    case 'trip':
+                        // not all fields mapped here to save, just for demo purpose
+                        const tripDb = {
+                            id: item.id,
+                            ownerId: item.ownerId,
+                            assetId: item.asset.id,
+                            tripType: item.tripType,
+                            dateStart: item.tripType,
+                            dateEnd: item.assetId,
+                            records: item.tripType,
+                            driveTime: item.stats.driveTime,
+                            idleTime: item.stats.idleTime,
+                            distance: item.stats.distance,
+                        };
+
+                        await sql('trips')
+                            .insert(tripDb)
+                            .onConflict('id')
+                            .merge();
+
+                        break;
+                }
             }
-        })).data;
-        console.log(data);
 
+            id = data.id;
 
-        for (let count = 0; count < data.items.length; count++) {
-            const item = data.items[count];
-
-            switch (item.type) {
-                case 'event':
-                    // not all fields mapped here to save, just for demo purpose
-                    const eventDb = {
-                        id: item.id,
-                        ownerId: item.ownerId,
-                        ownerName: item.ownerName,
-                        originId: item.originId,
-                        date: item.date,
-                        eventDate: item.eventDate,
-                        revoked: item.revoked,
-                        eventClass: item.eventClass,
-                        eventType: item.eventType,
-                        assetId: item.assetId,
-                    };
-                    await sql('events')
-                        .insert(eventDb)
-                        .onConflict('id')
-                        .merge();
-
-                    break;
-                case 'telemetry':
-                    // not all fields mapped here to save, just for demo purpose
-                    const telemetryDb = {
-                        originId: item.originId,
-                        ownerId: item.ownerId,
-                        date: item.date,
-                        received: item.received,
-                        priority: item.telemetry['priority'],
-                        eventId: item.telemetry['eventId'],
-                        ignition: item.telemetry['ignition'],
-                        moving: item.telemetry['moving'],
-                        motion_end: item.telemetry['motion_end'],
-                        gsm_signal: item.telemetry['gsm_signal'],
-                        battery_perc: item.telemetry['battery_perc'],
-                        driving: item.telemetry['driving'],
-                        trip: item.telemetry['trip'],
-                        movement: item.telemetry['movement'],
-                        assetId: item.assetId,
-                    };
-
-                    // save to sqlite db
-                    await sql('telemetry')
-                        .insert(telemetryDb)
-                        .onConflict(['originId','date'])
-                        .merge();;
-
-                    break;
-                case 'trip':
-                    // not all fields mapped here to save, just for demo purpose
-                    const tripDb = {
-                        id: item.id,
-                        ownerId: item.ownerId,
-                        assetId: item.asset.id,
-                        tripType: item.tripType,
-                        dateStart: item.tripType,
-                        dateEnd: item.assetId,
-                        records: item.tripType,
-                        driveTime: item.stats.driveTime,
-                        idleTime: item.stats.idleTime,
-                        distance: item.stats.distance,
-                    };
-
-                    await sql('trips')
-                        .insert(tripDb)
-                        .onConflict('id')
-                        .merge();
-
-                    break;
+            // id field was found in previous GET operation and can now safely send delete, else ignore action
+            if (id) {
+               await axios.delete(`${process.env.EXPORT_TASK_HOST}/${id}`, {
+                    headers: {
+                        'x-access-token': process.env.EXPORT_TASK_API_KEY,
+                        'accept-encoding': 'gzip',
+                        'connection': 'keep-alive'
+                    }
+                });
+                console.log('Delete operation completed for id',id);
+                await new Promise(resolve => setTimeout(resolve, 15000)); 
+            } else {
+                console.log('No id field present from previous response, no delete operation sent')
             }
         }
-
-        // Send delete for batch to remove it from the stream
-        const result = await axios.delete(`${process.env.EXPORT_TASK_HOST}/${data.id}`, {
-            headers: {
-                'x-access-token': process.env.EXPORT_TASK_API_KEY, 
-                'accept-encoding': 'gzip',
-                'connection': 'keep-alive'
-            }
-        });
-        console.log(result.data);
     } catch (error) {
         console.log('Telemetry stream failed', error);
     }
