@@ -55,7 +55,8 @@ const initialize = async () => {
 
         await initializeExpress();
 
-        fetchApiData(api, ownerId);
+        await fetchApiData(api, ownerId);
+        await fetchTelemetry();
 
     } catch (err) {
         console.error(err);
@@ -68,40 +69,51 @@ const login = async (username: string, password: string) => {
 }
 
 const fetchApiData = async (api: ApiClient, ownerId: string) => {
-    // Devices
-    // map out columns to match schema for demo purpose only, normally all columns would be persisted so no map needed
-    const devices = await retryOnThrottle(() => api.entities.listDevices(ownerId, undefined, 100), 5);
-    await sql('devices').insert(devices.items.map((device: DeviceListItem) => {
-        return {
-            id: device.id,
-            name: device.name,
-            state: device.state
-        }
-    }));
 
-    // Assets
-    // map out columns to match schema for demo purpose only, normally all columns would be persisted so no map needed
+    /******** Assets *******/
+    // map out columns to match schema for demo purpose only, normally all columns would be persisted
     const assets = await retryOnThrottle(() => api.entities.listAssets(ownerId, undefined, 100), 5);
-    await sql('assets').insert(assets.items.map((asset: AssetListItem) => {
-        return {
-            id: asset.id,
-            name: asset.name,
-            state: asset.state,
-            deviceId: asset.devices ? asset.devices[0].id : null,
-            ownerId: asset.owner.id,
-            costCentreId: asset.costCentre.id
-        }
-    }));
+    await sql('assets')
+        .insert(assets.items.map((asset: AssetListItem) => {
+            return {
+                id: asset.id,
+                name: asset.name,
+                state: asset.state,
+                ownerId: asset.owner.id,
+                costCentreId: asset.costCentre.id
+            }
+        }))
+        .onConflict('id')
+        .merge();
 
+    /******** Devices *******/
+    // map out columns to match schema for demo purpose only, normally all columns would be persisted
+    const devices = await retryOnThrottle(() => api.entities.listDevices(ownerId, undefined, 100), 5);
+    await sql('devices')
+        .insert(devices.items.map((device: DeviceListItem) => {
+            return {
+                id: device.id,
+                name: device.name,
+                state: device.state,
+                assetId: device.asset?.id
+            }
+        }))
+        .onConflict('id')
+        .merge();
+}
+
+const fetchTelemetry = async () => {
     // Get data from telemetry stream over HTTP and start mapping out to telemetry, events, trips
     try {
-        const data = (await axios.get('https://export.eu1.kt1.io/v2/stream', {
+        const data = (await axios.get(process.env.EXPORT_TASK_HOST, {
             headers: {
-                'x-access-token': process.env.EXPORT_TASK_API_KEY, 
+                'x-access-token': process.env.EXPORT_TASK_API_KEY,
                 'accept-encoding': 'gzip',
                 'connection': 'keep-alive'
             }
         })).data;
+        console.log(data);
+
 
         for (let count = 0; count < data.items.length; count++) {
             const item = data.items[count];
@@ -116,15 +128,16 @@ const fetchApiData = async (api: ApiClient, ownerId: string) => {
                         originId: item.originId,
                         date: item.date,
                         eventDate: item.eventDate,
-                        creationDate: item.creationDate,
                         revoked: item.revoked,
                         eventClass: item.eventClass,
                         eventType: item.eventType,
                         assetId: item.assetId,
-                        assetName: item.assetName,
                     };
-                    await sql('events').insert(eventDb);
-                    console.log('event record consumed!')
+                    await sql('events')
+                        .insert(eventDb)
+                        .onConflict('id')
+                        .merge();
+
                     break;
                 case 'telemetry':
                     // not all fields mapped here to save, just for demo purpose
@@ -144,37 +157,48 @@ const fetchApiData = async (api: ApiClient, ownerId: string) => {
                         trip: item.telemetry['trip'],
                         movement: item.telemetry['movement'],
                         assetId: item.assetId,
-                        assetName: item.assetName,
                     };
 
                     // save to sqlite db
-                    await sql('telemetry').insert(telemetryDb);
+                    await sql('telemetry')
+                        .insert(telemetryDb)
+                        .onConflict(['originId','date'])
+                        .merge();;
 
-                    // log out message of saved record
-                    console.log('telemetry record consumed!')
                     break;
                 case 'trip':
                     // not all fields mapped here to save, just for demo purpose
                     const tripDb = {
                         id: item.id,
                         ownerId: item.ownerId,
-                        assetId: item.assetId,
-                        tripType: item.tripType, 
+                        assetId: item.asset.id,
+                        tripType: item.tripType,
                         dateStart: item.tripType,
                         dateEnd: item.assetId,
                         records: item.tripType,
-                        assetName: item.assetName,
                         driveTime: item.stats.driveTime,
                         idleTime: item.stats.idleTime,
                         distance: item.stats.distance,
                     };
 
-                    await sql('trips').insert(tripDb);
+                    await sql('trips')
+                        .insert(tripDb)
+                        .onConflict('id')
+                        .merge();
 
-                    console.log('trip record consumed!')
                     break;
             }
         }
+
+        // Send delete for batch to remove it from the stream
+        const result = await axios.delete(`${process.env.EXPORT_TASK_HOST}/${data.id}`, {
+            headers: {
+                'x-access-token': process.env.EXPORT_TASK_API_KEY, 
+                'accept-encoding': 'gzip',
+                'connection': 'keep-alive'
+            }
+        });
+        console.log(result.data);
     } catch (error) {
         console.log('Telemetry stream failed', error);
     }

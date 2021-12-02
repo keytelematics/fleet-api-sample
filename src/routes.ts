@@ -10,21 +10,18 @@ export const initializeExpress = async () => {
     app.use(express.json({ limit: '25mb' }));
     app.use(cors());
 
-    app.get('/data', async (request: Request, response: Response, _next: NextFunction) => {
+    app.get('/telemetry', async (request: Request, response: Response, _next: NextFunction) => {
         try {
-            const assets = await sql('assets').select()
-            const devices = await sql('devices').select();
-            const events = await sql('events').select()
-            const telemetry = await sql('telemetry').select();
-            const trips = await sql('trips').select();
             
+            const telemetryData = await sql
+                .select('*')
+                .from('telemetry')
+                .join('assets', 'telemetry.assetId', '=', 'assets.id')
+                .join('devices','assets.deviceId', '=', 'devices.id');
+
             response.status(200).json({
-                assets,
-                devices,
-                events,
-                telemetry,
-                trips
-            }); 
+                telemetry: telemetryData
+            });
         } catch (err) {
             response.status(500).json({ error: err.message });
         }
