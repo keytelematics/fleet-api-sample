@@ -12,21 +12,30 @@ export const initializeExpress = async () => {
 
     app.get('/telemetry', async (request: Request, response: Response, _next: NextFunction) => {
         try {
-            const data = await Promise.all((await sql.select('*').from('telemetry_latest')).map(async telem => {
+            const data = await Promise.all((await sql
+                .select({
+                    assetName: 'assets.name',
+                    deviceSerial: 'devices.name',
+                    date: 'telemetry_latest.date',
+                    lon: 'telemetry_latest.lon',
+                    lat: 'telemetry_latest.lat',
+                    speed: 'telemetry_latest.speed',
+                    address: 'telemetry_latest.address'
+                })
+                .from('telemetry_latest')
+                .join('assets', 'telemetry_latest.assetId', 'assets.id')
+                .join('devices', 'assets.id', 'devices.assetId')).map(async telem => {
 
-                const assetName = (await sql('assets').where('id', telem.assetId).first())?.name ?? '';
-                const deviceSerial = (await sql('devices').where('assetId', telem.assetId).first())?.name ?? '';
-
-                return {
-                    assetName: assetName,
-                    deviceSerial: deviceSerial,
-                    date: telem.date,
-                    lon: telem.lon,
-                    lat: telem.lat,
-                    speed: telem.speed,
-                    address: telem.address,
-                };
-            }));
+                    return {
+                        assetName: telem.assetName,
+                        deviceSerial: telem.deviceSerial,
+                        date: telem.date,
+                        lon: telem.lon,
+                        lat: telem.lat,
+                        speed: telem.speed,
+                        address: telem.address,
+                    };
+                }));
 
             response.status(200).json(data);
         } catch (err) {

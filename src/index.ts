@@ -156,18 +156,10 @@ const fetchTelemetry = async () => {
                             .onConflict(['originId', 'date'])
                             .merge();
 
-                        const existingRecord = await sql('telemetry_latest').where('assetId', telemetryDb.assetId).first();
-
-                        if (existingRecord) {
-                            // exists so update the record 
-                            await sql('telemetry_latest')
-                                .where('assetId', telemetryDb.assetId)
-                                .update(telemetryDb);
-                        } else {
-                            // does not exist so insert
-                            await sql('telemetry_latest')
-                                .insert(telemetryDb);
-                        }
+                        await sql('telemetry_latest')
+                            .insert(telemetryDb)
+                            .onConflict('originId')
+                            .merge();
 
                         break;
                     case 'trip':

@@ -44,7 +44,7 @@ exports.up = function (knex) {
             tbl.text('lat', 20)
             tbl.text('address', 256)
             tbl.foreign('assetId').references('assets.id')
-            tbl.primary(['originId','date'])
+            tbl.primary('originId')
         })
         .createTable('trips', (tbl) => {
             tbl.text('id', 128).primary()
