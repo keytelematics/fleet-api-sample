@@ -156,6 +156,7 @@ const fetchTelemetry = async () => {
                             .onConflict(['originId', 'date'])
                             .merge();
 
+                        // save to latest table
                         await sql('telemetry_latest')
                             .insert(telemetryDb)
                             .onConflict('originId')
