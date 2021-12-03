@@ -99,14 +99,16 @@ const fetchApiData = async (api: ApiClient, ownerId: string) => {
         .merge();
 }
 
+const getExportTaskData = () => {
+
+}
 const fetchTelemetry = async () => {
     console.log('Fetching telemetry from stream');
 
     // Get data from telemetry stream over HTTP and start mapping out to telemetry, events, trips
     try {
-        let id = '';
-        while (id != undefined) {
-
+        while (true) {
+            console.log('fetching export task stream data');
             const data = (await axios.get(process.env.EXPORT_TASK_HOST, {
                 headers: {
                     'x-access-token': process.env.EXPORT_TASK_API_KEY,
@@ -185,26 +187,20 @@ const fetchTelemetry = async () => {
                 }
             }
 
-            id = data.id;
+            const id = data.id;
 
             // id field was found in previous GET operation and can now safely send delete, else ignore action
-            if (id) {
-                try {
-                    await axios.delete(`${process.env.EXPORT_TASK_HOST}/${id}`, {
-                        headers: {
-                            'x-access-token': process.env.EXPORT_TASK_API_KEY,
-                            'accept-encoding': 'gzip',
-                            'connection': 'keep-alive'
-                        }
-                    });
-                    console.log('Delete operation completed for id', id);
-                    await new Promise(resolve => setTimeout(resolve, 15000));
-                }
-                catch (error) {
-                    console.log('Delete operation failed for id', id);
-                }
+            if (id === undefined) {
+                console.log('No id value found, waiting 30 sec')
+                await new Promise(resolve => setTimeout(resolve, 30000));
             } else {
-                console.log('No id field present from previous response, no delete operation sent')
+                await axios.delete(`${process.env.EXPORT_TASK_HOST}/${id}`, {
+                    headers: {
+                        'x-access-token': process.env.EXPORT_TASK_API_KEY,
+                        'accept-encoding': 'gzip',
+                        'connection': 'keep-alive'
+                    }
+                });
             }
         }
     } catch (error) {
