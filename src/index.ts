@@ -123,15 +123,15 @@ const fetchTelemetry = async () => {
                         // not all fields mapped here to save, just for demo purpose
                         const eventDb = {
                             id: item.id,
-                            ownerName: item.ownerName,
+                            ownerId: item.owner.id,
+                            ownerName: item.owner.name,
                             originId: item.origin.id,
-                            date: item.date,
                             eventDate: item.eventDate,
-                            revoked: item.revoked,
                             eventClass: item.eventClass,
                             eventType: item.eventType,
-                            assetId: item.asset.id,
+                            assetId: item.details.asset.id,
                         };
+
                         await sql('events')
                             .insert(eventDb)
                             .onConflict('id')
@@ -150,27 +150,37 @@ const fetchTelemetry = async () => {
                             assetId: item.asset.id,
                         };
 
-                        console.log(item);
-                        // save to sqlite db
+                        // save to historical table
                         await sql('telemetry')
                             .insert(telemetryDb)
                             .onConflict(['originId', 'date'])
                             .merge();
+
+                        const existingRecord = await sql('telemetry_latest').where('assetId', telemetryDb.assetId).first();
+
+                        if (existingRecord) {
+                            // exists so update the record 
+                            await sql('telemetry_latest')
+                                .where('assetId', telemetryDb.assetId)
+                                .update(telemetryDb);
+                        } else {
+                            // does not exist so insert
+                            await sql('telemetry_latest')
+                                .insert(telemetryDb);
+                        }
 
                         break;
                     case 'trip':
                         // not all fields mapped here to save, just for demo purpose
                         const tripDb = {
                             id: item.id,
-                            ownerId: item.ownerId,
+                            ownerId: item.owner.id,
+                            ownerName: item.owner.name,
                             assetId: item.asset.id,
                             tripType: item.tripType,
-                            dateStart: item.tripType,
-                            dateEnd: item.assetId,
+                            dateStart: item.dateStart,
+                            dateEnd: item.dateEnd,
                             records: item.tripType,
-                            driveTime: item.stats.driveTime,
-                            idleTime: item.stats.idleTime,
-                            distance: item.stats.distance,
                         };
 
                         await sql('trips')

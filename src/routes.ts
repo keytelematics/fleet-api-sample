@@ -12,7 +12,7 @@ export const initializeExpress = async () => {
 
     app.get('/telemetry', async (request: Request, response: Response, _next: NextFunction) => {
         try {
-            const data = await Promise.all((await sql.select('*').from('telemetry')).map(async telem => {
+            const data = await Promise.all((await sql.select('*').from('telemetry_latest')).map(async telem => {
 
                 const assetName = (await sql('assets').where('id', telem.assetId).first())?.name ?? '';
                 const deviceSerial = (await sql('devices').where('assetId', telem.assetId).first())?.name ?? '';
