@@ -99,9 +99,6 @@ const fetchApiData = async (api: ApiClient, ownerId: string) => {
         .merge();
 }
 
-const getExportTaskData = () => {
-
-}
 const fetchTelemetry = async () => {
     console.log('Fetching telemetry from stream');
 
