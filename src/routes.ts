@@ -1,6 +1,7 @@
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import { sql } from './database';
+import path from 'path';
 
 export const initializeExpress = async () => {
 
@@ -9,6 +10,10 @@ export const initializeExpress = async () => {
 
     app.use(express.json({ limit: '25mb' }));
     app.use(cors());
+
+    app.get('/',function(req,res) {
+        res.sendFile(path.join(__dirname+'/index.html'));
+      });
 
     app.get('/telemetry', async (request: Request, response: Response, _next: NextFunction) => {
         try {
