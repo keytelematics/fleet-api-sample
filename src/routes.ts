@@ -12,16 +12,23 @@ export const initializeExpress = async () => {
 
     app.get('/telemetry', async (request: Request, response: Response, _next: NextFunction) => {
         try {
-            
-            const telemetryData = await sql
-                .select('*')
-                .from('telemetry')
-                .join('assets', 'telemetry.assetId', '=', 'assets.id')
-                .join('devices','assets.deviceId', '=', 'devices.id');
+            const data = await Promise.all((await sql.select('*').from('telemetry')).map(async telem => {
 
-            response.status(200).json({
-                telemetry: telemetryData
-            });
+                const assetName = (await sql('assets').where('id', telem.assetId).first())?.name ?? '';
+                const deviceSerial = (await sql('devices').where('assetId', telem.assetId).first())?.name ?? '';
+
+                return {
+                    assetName: assetName,
+                    deviceSerial: deviceSerial,
+                    date: telem.date,
+                    lon: telem.lon,
+                    lat: telem.lat,
+                    speed: telem.speed,
+                    address: telem.address,
+                };
+            }));
+
+            response.status(200).json(data);
         } catch (err) {
             response.status(500).json({ error: err.message });
         }

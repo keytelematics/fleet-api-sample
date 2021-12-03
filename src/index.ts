@@ -77,9 +77,7 @@ const fetchApiData = async (api: ApiClient, ownerId: string) => {
             return {
                 id: asset.id,
                 name: asset.name,
-                state: asset.state,
-                ownerId: asset.owner.id,
-                costCentreId: asset.costCentre.id
+                state: asset.state
             }
         }))
         .onConflict('id')
@@ -125,15 +123,14 @@ const fetchTelemetry = async () => {
                         // not all fields mapped here to save, just for demo purpose
                         const eventDb = {
                             id: item.id,
-                            ownerId: item.ownerId,
                             ownerName: item.ownerName,
-                            originId: item.originId,
+                            originId: item.origin.id,
                             date: item.date,
                             eventDate: item.eventDate,
                             revoked: item.revoked,
                             eventClass: item.eventClass,
                             eventType: item.eventType,
-                            assetId: item.assetId,
+                            assetId: item.asset.id,
                         };
                         await sql('events')
                             .insert(eventDb)
@@ -144,28 +141,21 @@ const fetchTelemetry = async () => {
                     case 'telemetry':
                         // not all fields mapped here to save, just for demo purpose
                         const telemetryDb = {
-                            originId: item.originId,
-                            ownerId: item.ownerId,
+                            originId: item.origin.id,
                             date: item.date,
-                            received: item.received,
-                            priority: item.telemetry['priority'],
-                            eventId: item.telemetry['eventId'],
-                            ignition: item.telemetry['ignition'],
-                            moving: item.telemetry['moving'],
-                            motion_end: item.telemetry['motion_end'],
-                            gsm_signal: item.telemetry['gsm_signal'],
-                            battery_perc: item.telemetry['battery_perc'],
-                            driving: item.telemetry['driving'],
-                            trip: item.telemetry['trip'],
-                            movement: item.telemetry['movement'],
-                            assetId: item.assetId,
+                            speed: item.location.speed,
+                            lon: item.location.lon,
+                            lat: item.location.lat,
+                            address: item.location.address,
+                            assetId: item.asset.id,
                         };
 
+                        console.log(item);
                         // save to sqlite db
                         await sql('telemetry')
                             .insert(telemetryDb)
                             .onConflict(['originId', 'date'])
-                            .merge();;
+                            .merge();
 
                         break;
                     case 'trip':
@@ -196,15 +186,20 @@ const fetchTelemetry = async () => {
 
             // id field was found in previous GET operation and can now safely send delete, else ignore action
             if (id) {
-               await axios.delete(`${process.env.EXPORT_TASK_HOST}/${id}`, {
-                    headers: {
-                        'x-access-token': process.env.EXPORT_TASK_API_KEY,
-                        'accept-encoding': 'gzip',
-                        'connection': 'keep-alive'
-                    }
-                });
-                console.log('Delete operation completed for id',id);
-                await new Promise(resolve => setTimeout(resolve, 15000)); 
+                try {
+                    await axios.delete(`${process.env.EXPORT_TASK_HOST}/${id}`, {
+                        headers: {
+                            'x-access-token': process.env.EXPORT_TASK_API_KEY,
+                            'accept-encoding': 'gzip',
+                            'connection': 'keep-alive'
+                        }
+                    });
+                    console.log('Delete operation completed for id', id);
+                    await new Promise(resolve => setTimeout(resolve, 15000));
+                }
+                catch (error) {
+                    console.log('Delete operation failed for id', id);
+                }
             } else {
                 console.log('No id field present from previous response, no delete operation sent')
             }
