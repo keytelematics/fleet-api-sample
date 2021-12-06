@@ -3,6 +3,17 @@ import cors from 'cors';
 import { sql } from './database';
 import path from 'path';
 
+export interface IChangeNotification {
+    type: 'changenotification';
+    operation: 'added' | 'modified' | 'deleted' | string;
+    date: string;
+    doc: {
+        id: string;
+        ownerId?: string;
+        type?: string;
+    };
+}
+
 export const initializeExpress = async () => {
 
     const app = express();
@@ -11,10 +22,11 @@ export const initializeExpress = async () => {
     app.use(express.json({ limit: '25mb' }));
     app.use(cors());
 
-    app.get('/',function(req,res) {
-        res.sendFile(path.join(__dirname+'/index.html'));
-      });
+    app.get('/', function (req, res) {
+        res.sendFile(path.join(__dirname + '/index.html'));
+    });
 
+    // Endpoint to get telemetry data from
     app.get('/telemetry', async (request: Request, response: Response, _next: NextFunction) => {
         try {
             const data = await Promise.all((await sql
@@ -48,8 +60,127 @@ export const initializeExpress = async () => {
         }
     });
 
+    // Endpoint to push data to update, used by change notifications
+    app.post('/updates', async (request: Request, response: Response, _next: NextFunction) => {
+        try {
+
+            const data = JSON.parse(request.body) as IChangeNotification;
+
+            switch (data.operation) {
+                case 'added':
+                case 'modified':
+                    await createOrUpdateData(data.doc);
+                    break;
+                case 'deleted':
+                    await deleteData(data.doc);
+                    break;
+                default:
+                    console.log('Unknown operation, could not process change');
+                    response.status(500).json({ message: 'Unknown operation, could not process change' });
+            }
+
+            response.status(200).json({});
+
+        } catch (err) {
+            response.status(500).json({ error: err.message });
+        }
+    });
+
+
     app.listen(port, () => {
         console.log(`Server running on port ${port}.`);
     });
+
+
+    const deleteData = async (data: any) => {
+        // doc type not known here, trying to set state to delete on all tables where it would match by id
+        await sql('assets')
+            .where({ id: data.id })
+            .update({ state: 'deleted' });
+
+        await sql('devices')
+            .where({ id: data.id })
+            .update({ state: 'deleted' });
+    }
+
+    const createOrUpdateData = async (data: any) => {
+        if (data.type == 'asset') {
+            await sql('assets')
+                .insert({
+                    id: data.id,
+                    name: data.name,
+                    state: data.state
+                })
+                .onConflict('id')
+                .merge();
+        }
+        else if (data.type == 'device') {
+            await sql('devices')
+                .insert({
+                    id: data.id,
+                    name: data.name,
+                    state: data.state,
+                    assetId: data.asset?.id
+                })
+                .onConflict('id')
+                .merge();
+        }
+        else if (data.type == 'event') {
+            await sql('events')
+                .insert({
+                    id: data.id,
+                    ownerId: data.owner.id,
+                    ownerName: data.owner.name,
+                    originId: data.origin.id,
+                    eventDate: data.eventDate,
+                    eventClass: data.eventClass,
+                    eventType: data.eventType,
+                    assetId: data.details.asset.id,
+                })
+                .onConflict('id')
+                .merge();
+        }
+        else if (data.type == 'telemetry') {
+
+            const telemetryDb = {
+                originId: data.origin.id,
+                date: data.date,
+                speed: data.location.speed,
+                lon: data.location.lon,
+                lat: data.location.lat,
+                address: data.location.address,
+                assetId: data.asset.id,
+            };
+
+            // save to historical table
+            await sql('telemetry')
+                .insert(telemetryDb)
+                .onConflict(['originId', 'date'])
+                .merge();
+
+            // save to latest table
+            await sql('telemetry_latest')
+                .insert(telemetryDb)
+                .onConflict('originId')
+                .merge();
+        }
+        else if (data.type == 'trip') {
+            await sql('trips')
+                .insert({
+                    id: data.id,
+                    ownerId: data.owner.id,
+                    ownerName: data.owner.name,
+                    assetId: data.asset.id,
+                    tripType: data.tripType,
+                    dateStart: data.dateStart,
+                    dateEnd: data.dateEnd,
+                    records: data.tripType,
+                })
+                .onConflict('id')
+                .merge();
+        }
+
+
+    }
 
 };

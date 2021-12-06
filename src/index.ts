@@ -191,13 +191,13 @@ const fetchTelemetry = async () => {
                 console.log('No id value found, waiting 30 sec')
                 await new Promise(resolve => setTimeout(resolve, 30000));
             } else {
-                await axios.delete(`${process.env.EXPORT_TASK_HOST}/${id}`, {
-                    headers: {
-                        'x-access-token': process.env.EXPORT_TASK_API_KEY,
-                        'accept-encoding': 'gzip',
-                        'connection': 'keep-alive'
-                    }
-                });
+                // await axios.delete(`${process.env.EXPORT_TASK_HOST}/${id}`, {
+                //     headers: {
+                //         'x-access-token': process.env.EXPORT_TASK_API_KEY,
+                //         'accept-encoding': 'gzip',
+                //         'connection': 'keep-alive'
+                //     }
+                // });
             }
         }
     } catch (error) {
