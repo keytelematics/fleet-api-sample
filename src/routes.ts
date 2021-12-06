@@ -125,62 +125,6 @@ export const initializeExpress = async () => {
                 .onConflict('id')
                 .merge();
         }
-        else if (data.type == 'event') {
-            await sql('events')
-                .insert({
-                    id: data.id,
-                    ownerId: data.owner.id,
-                    ownerName: data.owner.name,
-                    originId: data.origin.id,
-                    eventDate: data.eventDate,
-                    eventClass: data.eventClass,
-                    eventType: data.eventType,
-                    assetId: data.details.asset.id,
-                })
-                .onConflict('id')
-                .merge();
-        }
-        else if (data.type == 'telemetry') {
-
-            const telemetryDb = {
-                originId: data.origin.id,
-                date: data.date,
-                speed: data.location.speed,
-                lon: data.location.lon,
-                lat: data.location.lat,
-                address: data.location.address,
-                assetId: data.asset.id,
-            };
-
-            // save to historical table
-            await sql('telemetry')
-                .insert(telemetryDb)
-                .onConflict(['originId', 'date'])
-                .merge();
-
-            // save to latest table
-            await sql('telemetry_latest')
-                .insert(telemetryDb)
-                .onConflict('originId')
-                .merge();
-        }
-        else if (data.type == 'trip') {
-            await sql('trips')
-                .insert({
-                    id: data.id,
-                    ownerId: data.owner.id,
-                    ownerName: data.owner.name,
-                    assetId: data.asset.id,
-                    tripType: data.tripType,
-                    dateStart: data.dateStart,
-                    dateEnd: data.dateEnd,
-                    records: data.tripType,
-                })
-                .onConflict('id')
-                .merge();
-        }
-
-
     }
 
 };
