@@ -5,6 +5,17 @@ import axios from 'axios';
 
 require('dotenv').config(); // Load .env file in project root as environment variables
 
+export interface IChangeNotification {
+    type: 'changenotification';
+    operation: 'added' | 'modified' | 'deleted' | string;
+    date: string;
+    doc: {
+        id: string;
+        ownerId?: string;
+        type?: string;
+    };
+}
+
 type ApiClient = {
     entities: EntitiesClient,
 }
@@ -60,6 +71,46 @@ const initialize = async () => {
         console.error(err);
     }
 }
+
+const deleteData = async (data: any) => {
+    // doc type not known here, trying to set state to delete on all tables where it would match by id
+    await sql('assets')
+        .where({ id: data.id })
+        .update({ state: 'deleted' });
+
+    await sql('devices')
+        .where({ id: data.id })
+        .update({ state: 'deleted' });
+}
+
+const createOrUpdateData = async (data: any) => {
+    // More entities can be added in the function along with more tables as more entities are needed
+    switch (data.type) {
+        case 'asset':
+            await sql('assets')
+                .insert({
+                    id: data.id,
+                    name: data.name,
+                    state: data.state
+                })
+                .onConflict('id')
+                .merge();
+            break;
+        case 'device':
+            await sql('devices')
+                .insert({
+                    id: data.id,
+                    name: data.name,
+                    state: data.state,
+                    assetId: data.asset?.id
+                })
+                .onConflict('id')
+                .merge();
+            break;
+        default:
+            console.log('Entity unknown, added to switch to handle this entity')
+    }
+};
 
 // Login for access token
 const login = async (username: string, password: string) => {
@@ -119,6 +170,7 @@ const fetchTelemetry = async () => {
 
                 switch (item.type) {
                     case 'event':
+                        console.log('processing event data');
                         // not all fields mapped here to save, just for demo purpose
                         const eventDb = {
                             id: item.id,
@@ -138,6 +190,7 @@ const fetchTelemetry = async () => {
 
                         break;
                     case 'telemetry':
+                        console.log('processing telemetry data');
                         // not all fields mapped here to save, just for demo purpose
                         const telemetryDb = {
                             originId: item.origin.id,
@@ -163,6 +216,7 @@ const fetchTelemetry = async () => {
 
                         break;
                     case 'trip':
+                        console.log('processing trip data');
                         // not all fields mapped here to save, just for demo purpose
                         const tripDb = {
                             id: item.id,
@@ -181,6 +235,23 @@ const fetchTelemetry = async () => {
                             .merge();
 
                         break;
+                    case 'changenotification':
+                        console.log('processing change notification data');
+                        switch (data.operation) {
+                            case 'added':
+                            case 'modified':
+                                console.log('changenotification modified')
+                                await createOrUpdateData(item.doc);
+                                break;
+                            case 'deleted':
+                                console.log('changenotification deleted')
+                                await deleteData(data.doc);
+                                break;
+                            default:
+                                console.log('Unknown operation');
+                        }
+
+                        break;
                 }
             }
 
@@ -191,13 +262,14 @@ const fetchTelemetry = async () => {
                 console.log('No id value found, waiting 30 sec')
                 await new Promise(resolve => setTimeout(resolve, 30000));
             } else {
-                // await axios.delete(`${process.env.EXPORT_TASK_HOST}/${id}`, {
-                //     headers: {
-                //         'x-access-token': process.env.EXPORT_TASK_API_KEY,
-                //         'accept-encoding': 'gzip',
-                //         'connection': 'keep-alive'
-                //     }
-                // });
+                await axios.delete(`${process.env.EXPORT_TASK_HOST}/${id}`, {
+                    headers: {
+                        'x-access-token': process.env.EXPORT_TASK_API_KEY,
+                        'accept-encoding': 'gzip',
+                        'connection': 'keep-alive'
+                    }
+                });
+                console.log('deleting stream data with id', id);
             }
         }
     } catch (error) {

@@ -3,17 +3,6 @@ import cors from 'cors';
 import { sql } from './database';
 import path from 'path';
 
-export interface IChangeNotification {
-    type: 'changenotification';
-    operation: 'added' | 'modified' | 'deleted' | string;
-    date: string;
-    doc: {
-        id: string;
-        ownerId?: string;
-        type?: string;
-    };
-}
-
 export const initializeExpress = async () => {
 
     const app = express();
@@ -60,71 +49,7 @@ export const initializeExpress = async () => {
         }
     });
 
-    // Endpoint to push data to update, used by change notifications
-    app.post('/updates', async (request: Request, response: Response, _next: NextFunction) => {
-        try {
-
-            const data = JSON.parse(request.body) as IChangeNotification;
-
-            switch (data.operation) {
-                case 'added':
-                case 'modified':
-                    await createOrUpdateData(data.doc);
-                    break;
-                case 'deleted':
-                    await deleteData(data.doc);
-                    break;
-                default:
-                    console.log('Unknown operation, could not process change');
-                    response.status(500).json({ message: 'Unknown operation, could not process change' });
-            }
-
-            response.status(200).json({});
-
-        } catch (err) {
-            response.status(500).json({ error: err.message });
-        }
-    });
-
-
     app.listen(port, () => {
         console.log(`Server running on port ${port}.`);
     });
-
-
-    const deleteData = async (data: any) => {
-        // doc type not known here, trying to set state to delete on all tables where it would match by id
-        await sql('assets')
-            .where({ id: data.id })
-            .update({ state: 'deleted' });
-
-        await sql('devices')
-            .where({ id: data.id })
-            .update({ state: 'deleted' });
-    }
-
-    const createOrUpdateData = async (data: any) => {
-        if (data.type == 'asset') {
-            await sql('assets')
-                .insert({
-                    id: data.id,
-                    name: data.name,
-                    state: data.state
-                })
-                .onConflict('id')
-                .merge();
-        }
-        else if (data.type == 'device') {
-            await sql('devices')
-                .insert({
-                    id: data.id,
-                    name: data.name,
-                    state: data.state,
-                    assetId: data.asset?.id
-                })
-                .onConflict('id')
-                .merge();
-        }
-    }
-
 };
