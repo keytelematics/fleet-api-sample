@@ -104,11 +104,6 @@ const createOrUpdateEntity = async (type: string, data: any) => {
     }
 };
 
-// Login for access token
-const login = async (username: string, password: string) => {
-    return await retryOnThrottle(() => authClient.signIn({ username, password }), 5);
-}
-
 const fetchApiData = async (api: ApiClient, ownerId: string) => {
     console.log('Fetching data from api');
 
