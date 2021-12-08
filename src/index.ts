@@ -22,6 +22,7 @@ type ApiClient = {
 
 let loginCredentials;
 
+
 // retry exponential backoff promise
 async function retryOnThrottle<T>(callback: () => Promise<T>, tries: number): Promise<T> {
     let lastError = null;
@@ -66,13 +67,13 @@ const initialize = async () => {
 
         await initializeExpress();
         await fetchApiData(api, ownerId);
-        await fetchTelemetry();
+        await fetchTelemetry(api);
     } catch (err) {
         console.error(err);
     }
 }
 
-const deleteData = async (data: any) => {
+const deleteEntity = async (data: any) => {
     // doc type not known here, trying to set state to delete on all tables where it would match by id
     console.log('trying to delete from assets table with id', data.id);
     await sql('assets')
@@ -85,42 +86,26 @@ const deleteData = async (data: any) => {
         .update({ state: 'deleted' });
 }
 
-const createOrUpdateData = async (data: any) => {
+const createOrUpdateEntity = async (type: string, data: any) => {
     // More entities can be added in the function along with more tables as more entities are needed
-    switch (data.type) {
+    switch (type) {
         case 'asset':
-            
-            // call fleet api to get updated asset data
-            const asset = (await axios.get(`${process.env.KEY_HOST}/entities/assets/${data.id}`, {
-                headers: {
-                    "x-access-token": loginCredentials.accessToken
-                }
-            })).data;
-
             await sql('assets')
                 .insert({
                     id: data.id,
-                    name: asset.name,
-                    state: asset.state
+                    name: data.name,
+                    state: data.state
                 })
                 .onConflict('id')
                 .merge();
             break;
         case 'device':
-
-            // call fleet api to get updated device data
-            const device = (await axios.get(`${process.env.KEY_HOST}/entities/devices/${data.id}`, {
-                headers: {
-                    "x-access-token": loginCredentials.accessToken
-                }
-            })).data;
-            
             await sql('devices')
                 .insert({
                     id: data.id,
-                    name: device.name,
-                    state: device.state,
-                    assetId: device.asset?.id
+                    name: data.name,
+                    state: data.state,
+                    assetId: data.asset?.id
                 })
                 .onConflict('id')
                 .merge();
@@ -141,34 +126,32 @@ const fetchApiData = async (api: ApiClient, ownerId: string) => {
     /******** Assets *******/
     // map out columns to match schema for demo purpose only, normally all columns would be persisted
     const assets = await retryOnThrottle(() => api.entities.listAssets(ownerId, undefined, 100), 5);
-    await sql('assets')
-        .insert(assets.items.map((asset: AssetListItem) => {
-            return {
-                id: asset.id,
-                name: asset.name,
-                state: asset.state
-            }
-        }))
-        .onConflict('id')
-        .merge();
 
+    for (let index = 0; index < assets.items.length; index++) {
+        const asset = assets.items[index];
+        await createOrUpdateEntity('asset', {
+            id: asset.id,
+            name: asset.name,
+            state: asset.state
+        });
+    }
+  
     /******** Devices *******/
     // map out columns to match schema for demo purpose only, normally all columns would be persisted
     const devices = await retryOnThrottle(() => api.entities.listDevices(ownerId, undefined, 100), 5);
-    await sql('devices')
-        .insert(devices.items.map((device: DeviceListItem) => {
-            return {
-                id: device.id,
-                name: device.name,
-                state: device.state,
-                assetId: device.asset?.id
-            }
-        }))
-        .onConflict('id')
-        .merge();
+
+    for (let index = 0; index < devices.items.length; index++) {
+        const device = devices.items[index];
+        await createOrUpdateEntity('device', {
+            id: device.id,
+            name: device.name,
+            state: device.state,
+            assetId: device.asset?.id
+        });
+    }
 }
 
-const fetchTelemetry = async () => {
+const fetchTelemetry = async (api: ApiClient) => {
     console.log('Fetching telemetry from stream');
 
     // Get data from telemetry stream over HTTP and start mapping out to telemetry, events, trips
@@ -257,10 +240,22 @@ const fetchTelemetry = async () => {
                         switch (item.operation) {
                             case 'added':
                             case 'modified':
-                                await createOrUpdateData(item.doc);
+
+                                // add more entities here to insert or update in the sqlite db
+                                switch (item.doc.type) {
+                                    case 'asset':
+                                        const asset = await api.entities.getAsset(item.doc.id);
+                                        await createOrUpdateEntity(item.doc.type, asset);
+                                        break;
+                                    case 'device':
+                                        const device = await api.entities.getDevice(item.doc.id);
+                                        await createOrUpdateEntity(item.doc.type, device);
+                                        break; 
+                                }
+
                                 break;
                             case 'deleted':
-                                await deleteData(item.doc);
+                                await deleteEntity(item.doc);
                                 break;
                             default:
                                 console.log('Unknown operation', item.operation);
