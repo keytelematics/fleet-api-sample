@@ -39,10 +39,6 @@ async function retryOnThrottle<T>(callback: () => Promise<T>, tries: number): Pr
     throw lastError;
 }
 
-const authClient = new AuthClient({
-    url: process.env.KEY_HOST
-})
-
 const initialize = async () => {
 
     try {
