@@ -18,11 +18,11 @@ This project makes use of `dotenv` and requires a `.env` file in the root of the
 
 | VARIABLE    | DESCRIPTION                                                                 |
 |-------------|-----------------------------------------------------------------------------|
+| EXPORT_TASK_HOST | The url of the stream endpoint to call for stream data |
 | EXPORT_TASK_API_KEY | The api key created in the export tasks section in the UI |
-| KEY_HOST    | The KeyTelematics api host to make request to.                              |
+| KEY_HOST    | The KeyTelematics api host to make request to                             |
+| API_KEY    | The api key generated for the user to call the fleet api endpoints                              |
 | OWNER_ID    | The id of the company that owns the devices and assets                      |
-| USERNAME    | The username of a user to login with for authentication                     |
-| PASSWORD    | The password of the username to login with for authentication               |
 
 ## Step 3
 

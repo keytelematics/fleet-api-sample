@@ -1,4 +1,4 @@
-import { AssetListItem, AuthClient, DeviceListItem, EntitiesClient } from '@key-telematics/fleet-api-client';
+import { AuthClient, EntitiesClient } from '@key-telematics/fleet-api-client';
 import { sql } from './database';
 import { initializeExpress } from './routes';
 import axios from 'axios';
@@ -19,9 +19,6 @@ export interface IChangeNotification {
 type ApiClient = {
     entities: EntitiesClient,
 }
-
-let loginCredentials;
-
 
 // retry exponential backoff promise
 async function retryOnThrottle<T>(callback: () => Promise<T>, tries: number): Promise<T> {
@@ -49,24 +46,16 @@ const authClient = new AuthClient({
 const initialize = async () => {
 
     try {
-        const basePath = process.env.KEY_HOST;
-        const ownerId = process.env.OWNER_ID;
-        const username = process.env.USERNAME;
-        const password = process.env.PASSWORD;
-
-        // login with user to get access token to be used in api calls
-        loginCredentials = await login(username, password);
-
         // api object to be used for api calls for
         const api = {
             entities: new EntitiesClient({
-                url: basePath,
-                accessToken: loginCredentials.accessToken
+                url: process.env.KEY_HOST,
+                apiKey: process.env.API_KEY
             }),
         };
 
         await initializeExpress();
-        await fetchApiData(api, ownerId);
+        await fetchApiData(api, process.env.OWNER_ID);
         await fetchTelemetry(api);
     } catch (err) {
         console.error(err);
