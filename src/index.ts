@@ -74,10 +74,12 @@ const initialize = async () => {
 
 const deleteData = async (data: any) => {
     // doc type not known here, trying to set state to delete on all tables where it would match by id
+    console.log('trying to delete from assets table with id', data.id);
     await sql('assets')
         .where({ id: data.id })
         .update({ state: 'deleted' });
 
+    console.log('trying to delete from devices table with id', data.id);
     await sql('devices')
         .where({ id: data.id })
         .update({ state: 'deleted' });
@@ -87,22 +89,38 @@ const createOrUpdateData = async (data: any) => {
     // More entities can be added in the function along with more tables as more entities are needed
     switch (data.type) {
         case 'asset':
+            
+            // call fleet api to get updated asset data
+            const asset = (await axios.get(`${process.env.KEY_HOST}/entities/assets/${data.id}`, {
+                headers: {
+                    "x-access-token": loginCredentials.accessToken
+                }
+            })).data;
+
             await sql('assets')
                 .insert({
                     id: data.id,
-                    name: data.name,
-                    state: data.state
+                    name: asset.name,
+                    state: asset.state
                 })
                 .onConflict('id')
                 .merge();
             break;
         case 'device':
+
+            // call fleet api to get updated device data
+            const device = (await axios.get(`${process.env.KEY_HOST}/entities/devices/${data.id}`, {
+                headers: {
+                    "x-access-token": loginCredentials.accessToken
+                }
+            })).data;
+            
             await sql('devices')
                 .insert({
                     id: data.id,
-                    name: data.name,
-                    state: data.state,
-                    assetId: data.asset?.id
+                    name: device.name,
+                    state: device.state,
+                    assetId: device.asset?.id
                 })
                 .onConflict('id')
                 .merge();
@@ -236,21 +254,17 @@ const fetchTelemetry = async () => {
 
                         break;
                     case 'changenotification':
-                        console.log('processing change notification data');
-                        switch (data.operation) {
+                        switch (item.operation) {
                             case 'added':
                             case 'modified':
-                                console.log('changenotification modified')
                                 await createOrUpdateData(item.doc);
                                 break;
                             case 'deleted':
-                                console.log('changenotification deleted')
-                                await deleteData(data.doc);
+                                await deleteData(item.doc);
                                 break;
                             default:
-                                console.log('Unknown operation');
+                                console.log('Unknown operation', item.operation);
                         }
-
                         break;
                 }
             }
