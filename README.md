@@ -55,11 +55,11 @@ The project will start up with `nodemon` on port `5000`. The project will start 
 
 The telemetry endpoint [http://localhosthost:5000/telemetry](http://localhosthost:5000/telemetry)
 
- ![Api Example](./api.png)
+ ![Api Example](./docs/api.png)
 
 The UI that calls the telemetry endpoint [http://localhost:5000](http://localhost:5000)
 
-![UI Example](./ui.png)
+![UI Example](./docs/ui.png)
 
 # AWS Firehose
 

@@ -1,22 +1,10 @@
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
-import { ApiClient, fetchApi } from './apiClient';
-import { processTelemetry } from './telemetry';
 import path from 'path';
-import { getLatestTelemetry, sql } from './database';
+import { ApiClient, fetchApi, FirehoseResponse, getLatestTelemetry, processTelemetry } from './database';
 import { EntitiesClient } from '@key-telematics/fleet-api-client';
 
 require('dotenv').config(); // Load .env file in project root as environment variables
-
-type FirehoseResponse = {
-    requestId: string;
-    timestamp: number;
-    records: [
-        {
-            data: string;
-        }
-    ]
-}
 
 const initializeExpress = async (api: ApiClient) => {
 
@@ -40,8 +28,7 @@ const initializeExpress = async (api: ApiClient) => {
         }
     });
 
-    app.post('/telemetry', async (request: Request, response: Response, next: NextFunction) => {
-        console.log('firehose data pushed!')
+    app.post('/firehose', async (request: Request, response: Response, next: NextFunction) => {
         const authHeader = request.headers['x-amz-firehose-access-key'] || '';
 
         if (process.env.EXPORT_TASK_AUTH_HEADER != authHeader) {
