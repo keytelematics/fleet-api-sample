@@ -61,6 +61,8 @@ The UI that calls the telemetry endpoint [http://localhost:5000](http://localhos
 
 ![UI Example](./docs/ui.png)
 
+The Firehose endpoint is [http://localhost:5000/firehose](http://localhost:5000/firehose)
+
 # AWS Firehose
 
 When making use of the firehose export task implementation the following applies or the batch wont be consumed successfully
