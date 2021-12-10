@@ -17,28 +17,28 @@
         <div class="row">
             <div class="col-11">
                 <h3>Sample Telemetry</h3>
-            </div> 
+            </div>
             <div class="col-1 align-items-end">
                 <button type="button" class="btn btn-primary" onclick="getTelemetryData()">Refresh</button>
-            </div> 
+            </div>
         </div>
         <div class="row">
             <div class="col-12">
-            <table class="table table-bordered">
-                <thead>
-                    <tr>
-                        <th scope="col">Asset</th>
-                        <th scope="col">Device Serial</th>
-                        <th scope="col">Date</th>
-                        <th scope="col">Longitude</th>
-                        <th scope="col">Latitude</th>
-                        <th scope="col">Speed</th>
-                        <th scope="col">Address</th>
-                    </tr>
-                </thead>
-                <tbody id="data">
-                </tbody>
-            </table>
+                <table class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <th scope="col">Asset</th>
+                            <th scope="col">Device Serial</th>
+                            <th scope="col">Date</th>
+                            <th scope="col">Longitude</th>
+                            <th scope="col">Latitude</th>
+                            <th scope="col">Speed</th>
+                            <th scope="col">Address</th>
+                        </tr>
+                    </thead>
+                    <tbody id="data">
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
@@ -49,8 +49,8 @@
             res => {
                 res.json().then(
                     data => {
+                        var temp = "";
                         if (data.length > 0) {
-                            var temp = "";
                             data.forEach((itemData) => {
                                 temp += "<tr>";
                                 temp += "<td>" + itemData.assetName + "</td>";
@@ -62,8 +62,13 @@
                                 temp += "<td>" + itemData.address + "</td>";
                                 temp += "</tr>";
                             });
-                            document.getElementById('data').innerHTML = temp;
+
+                        } else {
+                            temp += "<tr>";
+                            temp += "<td colspan='7' class='text-center'>No telemetry data</td>";
+                            temp += "</tr>";
                         }
+                        document.getElementById('data').innerHTML = temp;
                     }
                 )
             }
