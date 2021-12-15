@@ -1,5 +1,7 @@
 # fleet-api-sample
-A reference application for making use of the Key Telematics Fleet API.
+A reference application for making use of the Key Telematics Fleet API. 
+
+More information can be found on the project [Wiki](https://github.com/keytelematics/fleet-api-sample/wiki).
 
 # Setup
 
@@ -63,20 +65,4 @@ The UI that calls the telemetry endpoint [http://localhost:5000](http://localhos
 
 The Firehose endpoint is [http://localhost:5000/firehose](http://localhost:5000/firehose)
 
-# AWS Firehose
 
-When making use of the firehose export task implementation the following applies or the batch wont be consumed successfully
-
-After consuming the batch data you need to return a `HTTP 200` response.
-
-With the `HTTP 200` response you need to return in the body:
-```
-{
-    // The request id received from the batch by firehose
-    'requestId': '123456',
-
-    // The timestamp when the batch was consumed by your app
-    'timestamp': 123213213
-}
-```
-Only after returning this will Firehose mark the batch as `delivered successfully` in AWS.
