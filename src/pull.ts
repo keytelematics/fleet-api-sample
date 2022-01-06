@@ -37,22 +37,19 @@ const initializeExpress = async () => {
 const initialize = async () => {
 
     try {
-
-        const axiosInstance = axios.create({
-            baseURL: `${process.env.EXPORT_TASK_HOST}/v2/stream`,
-            headers: {
-                'x-access-token': process.env.EXPORT_TASK_API_KEY,
-                'accept-encoding': 'gzip',
-                'connection': 'keep-alive'
-            }
-        });
-        
         const api = {
             entities: new EntitiesClient({
                 url: process.env.KEY_HOST,
                 apiKey: process.env.API_KEY
             }),
-            axios: axiosInstance
+            exportTask: axios.create({
+                baseURL: `${process.env.EXPORT_TASK_HOST}/v2/stream`,
+                headers: {
+                    'x-access-token': process.env.EXPORT_TASK_API_KEY,
+                    'accept-encoding': 'gzip',
+                    'connection': 'keep-alive'
+                }
+            }),
         };
 
         await initializeExpress();

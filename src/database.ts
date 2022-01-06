@@ -15,7 +15,7 @@ export interface IChangeNotification {
 
 export type ApiClient = {
     entities: EntitiesClient,
-    axios: AxiosInstance,
+    exportTask: AxiosInstance,
 }
 
 export type FirehoseResponse = {
@@ -233,7 +233,7 @@ export const fetchTelemetry = async (api: ApiClient) => {
     try {
         while (true) {
             console.log('fetching export task stream data');
-            const data = (await api.axios.get('/')).data;
+            const data = (await api.exportTask.get('/')).data;
 
             await processTelemetry(api, data.items);
 
@@ -244,7 +244,7 @@ export const fetchTelemetry = async (api: ApiClient) => {
                 console.log('No id value found, waiting 30 sec')
                 await new Promise(resolve => setTimeout(resolve, 30000));
             } else {
-                await api.axios.delete(`/${id}`);
+                await api.exportTask.delete(`/${id}`);
                 console.log('deleting stream data with id', id);
             }
         }
