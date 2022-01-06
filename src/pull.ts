@@ -3,6 +3,7 @@ import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import path from 'path';
 import { EntitiesClient } from '@key-telematics/fleet-api-client';
+import axios from 'axios';
 
 require('dotenv').config(); // Load .env file in project root as environment variables
 
@@ -37,11 +38,21 @@ const initialize = async () => {
 
     try {
 
+        const axiosInstance = axios.create({
+            baseURL: `${process.env.EXPORT_TASK_HOST}/v2/stream`,
+            headers: {
+                'x-access-token': process.env.EXPORT_TASK_API_KEY,
+                'accept-encoding': 'gzip',
+                'connection': 'keep-alive'
+            }
+        });
+        
         const api = {
             entities: new EntitiesClient({
                 url: process.env.KEY_HOST,
                 apiKey: process.env.API_KEY
             }),
+            axios: axiosInstance
         };
 
         await initializeExpress();

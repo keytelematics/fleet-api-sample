@@ -1,6 +1,6 @@
 import { EntitiesClient } from "@key-telematics/fleet-api-client";
-import axios from "axios";
-import knex from "knex"; 
+import { AxiosInstance } from "axios";
+import knex from "knex";
 
 export interface IChangeNotification {
     type: 'changenotification';
@@ -15,6 +15,7 @@ export interface IChangeNotification {
 
 export type ApiClient = {
     entities: EntitiesClient,
+    axios: AxiosInstance,
 }
 
 export type FirehoseResponse = {
@@ -113,7 +114,7 @@ export const getLatestTelemetry = async () => {
                 address: telem.address,
             };
         }));
-        return data;
+    return data;
 }
 
 export const processTelemetry = async (api: ApiClient, data: any) => {
@@ -196,11 +197,11 @@ export const processTelemetry = async (api: ApiClient, data: any) => {
                         switch (item.doc.type) {
                             case 'asset':
                                 const asset = await retryOnThrottle(() => api.entities.getAsset(item.doc.id), 5);
-                            
+
                                 await createOrUpdateEntity(item.doc.type, {
                                     id: asset.id,
                                     name: asset.name,
-                                    state: asset.state, 
+                                    state: asset.state,
                                 });
                                 break;
                             case 'device':
@@ -232,14 +233,7 @@ export const fetchTelemetry = async (api: ApiClient) => {
     try {
         while (true) {
             console.log('fetching export task stream data');
-            const url = `${process.env.EXPORT_TASK_HOST}/v2/stream`;
-            const data = (await axios.get(url, {
-                headers: {
-                    'x-access-token': process.env.EXPORT_TASK_API_KEY,
-                    'accept-encoding': 'gzip',
-                    'connection': 'keep-alive'
-                }
-            })).data;
+            const data = (await api.axios.get('/')).data;
 
             await processTelemetry(api, data.items);
 
@@ -250,13 +244,7 @@ export const fetchTelemetry = async (api: ApiClient) => {
                 console.log('No id value found, waiting 30 sec')
                 await new Promise(resolve => setTimeout(resolve, 30000));
             } else {
-                await axios.delete(`${process.env.EXPORT_TASK_HOST}/${id}`, {
-                    headers: {
-                        'x-access-token': process.env.EXPORT_TASK_API_KEY,
-                        'accept-encoding': 'gzip',
-                        'connection': 'keep-alive'
-                    }
-                });
+                await api.axios.delete(`/${id}`);
                 console.log('deleting stream data with id', id);
             }
         }
@@ -287,7 +275,7 @@ export const fetchApi = async (api: ApiClient) => {
     // map out columns to match schema for demo purpose only, normally all columns would be persisted
     const devices = await retryOnThrottle(() => api.entities.listDevices(ownerId, undefined, 100), 5);
 
- 
+
     for (let index = 0; index < devices.items.length; index++) {
         const device = devices.items[index];
         await createOrUpdateEntity('device', {
