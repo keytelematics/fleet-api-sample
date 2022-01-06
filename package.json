@@ -4,8 +4,8 @@
   "description": "fleet-api-sample",
   "main": "index.js",
   "scripts": {
-    "serve-pull": "nodemon src/pull.ts",
-    "serve-push": "nodemon src/push.ts",
+    "start:pull": "nodemon src/pull.ts",
+    "start:push": "nodemon src/push.ts",
     "build": "tsc",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

@@ -32,11 +32,11 @@ To run the project there are 2 options to choose from
 
 The pull implementation that makes use of calling the api and export task for data using HTTP calls:
 ```
-npm run serve-pull
+npm run start:pull
 ```
 The push implementation that creates a `telemetry` endpoint and receives data from firehose over HTTP in batches:
 ```
-npm run serve-push
+npm run start:push
 ```
 
 Both options will first call the Fleet api to get `assets` and `devices`, there after depending on the option used the telemetry and change notifications mechanism will differ.

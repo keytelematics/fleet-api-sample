@@ -232,7 +232,8 @@ export const fetchTelemetry = async (api: ApiClient) => {
     try {
         while (true) {
             console.log('fetching export task stream data');
-            const data = (await axios.get(process.env.EXPORT_TASK_HOST, {
+            const url = `${process.env.EXPORT_TASK_HOST}/v2/stream`;
+            const data = (await axios.get(url, {
                 headers: {
                     'x-access-token': process.env.EXPORT_TASK_API_KEY,
                     'accept-encoding': 'gzip',
